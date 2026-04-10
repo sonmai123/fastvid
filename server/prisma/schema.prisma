@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum SourceType {
+  upload
+  url
+  media
+}
+
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  email        String   @unique
+  passwordHash String
+  displayName  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  videos       Video[]
+  cuts         Cut[]
+}
+
+model Video {
+  id                String     @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String     @db.ObjectId
+  assetId           String     @unique
+  storedFilename    String
+  originalName      String
+  originalFormat    String
+  playbackUrl       String
+  sourceUrl         String?
+  uploader          String?
+  thumbnailUrl      String?
+  thumbnailFilename String?
+  sourceType        SourceType
+  fileSize          Int?
+  durationSec       Float?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cuts              Cut[]
+}
+
+model Cut {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  videoId        String   @db.ObjectId
+  name           String
+  outputFilename String
+  outputUrl      String
+  startTime      Float
+  endTime        Float
+  brightness     Int      @default(0)
+  contrast       Int      @default(0)
+  saturation     Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video          Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+}

@@ -12,6 +12,7 @@ build/
 .env
 .env.local
 .env.*.local
+server/dev.db
 
 # Temporary files and caches
 server/tmp/**

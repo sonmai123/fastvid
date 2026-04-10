@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import TrimTimeline from "./TrimTimeline";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
 function formatTime(value) {
   const total = Math.max(0, Math.floor(value));
@@ -10,9 +10,10 @@ function formatTime(value) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-export default function Editor({ video, onBack }) {
+export default function Editor({ video, onBack, token, uploadedVideos = [], onSelectVideo }) {
   const videoRef = useRef(null);
   const playerBoxRef = useRef(null);
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
   const [cuts, setCuts] = useState([]);
   const [brightness, setBrightness] = useState(0);
@@ -26,6 +27,7 @@ export default function Editor({ video, onBack }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [cutting, setCutting] = useState(false);
+  const [selectedVideoId, setSelectedVideoId] = useState(video?.id || video?.src || "");
 
   const filterStyle = useMemo(() => {
     return {
@@ -45,6 +47,10 @@ export default function Editor({ video, onBack }) {
     setIsPlaying(false);
     setCutting(false);
   }, [video.src]);
+
+  useEffect(() => {
+    setSelectedVideoId(video?.id || video?.src || "");
+  }, [video?.id, video?.src]);
 
   const handleLoadedMetadata = (e) => {
     const d = e.target.duration || 0;
@@ -123,6 +129,14 @@ export default function Editor({ video, onBack }) {
     setIsPlaying(false);
   };
 
+  const handleSelectVideo = (nextVideo) => {
+    if (!nextVideo) return;
+    const nextId = nextVideo.id || nextVideo.src || "";
+    if (nextId === selectedVideoId) return;
+    setSelectedVideoId(nextId);
+    onSelectVideo(nextVideo);
+  };
+
   const enterFullscreen = async () => {
     const el = playerBoxRef.current;
     if (!el) return;
@@ -147,6 +161,7 @@ export default function Editor({ video, onBack }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...authHeaders,
         },
         body: JSON.stringify({
           inputUrl: video.src,
@@ -182,88 +197,38 @@ export default function Editor({ video, onBack }) {
   };
 
   const downloadFile = async (url, filename) => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error("Download failed.");
-  }
-
-  const blob = await response.blob();
-  const blobUrl = URL.createObjectURL(blob);
-
-  const link = document.createElement("a");
-  link.href = blobUrl;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-
-  URL.revokeObjectURL(blobUrl);
-};
-
-const handleDownloadVideo = async (cut) => {
-  try {
-    await downloadFile(cut.src, `${cut.name}.mp4`);
-  } catch (error) {
-    alert(error.message || "Download video failed.");
-  }
-};
-
-const handleDownloadAudioOnly = async (cut) => {
-  try {
-    const res = await fetch(`${API_BASE}/api/extract-audio`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        inputUrl: cut.src,
-        originalFilename: `${cut.name}.mp4`,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || "Extract audio failed.");
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error("Download failed.");
     }
 
-    await downloadFile(data.outputUrl, `${cut.name}.mp3`);
-  } catch (error) {
-    alert(error.message || "Download audio failed.");
-  }
-};
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
 
-const handleDownloadAllVideos = async () => {
-  if (cuts.length === 0) {
-    alert("Chưa có video nào để tải.");
-    return;
-  }
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(blobUrl);
+  };
 
-  for (let i = 0; i < cuts.length; i += 1) {
-    const cut = cuts[i];
+  const handleDownloadVideo = async (cut) => {
     try {
       await downloadFile(cut.src, `${cut.name}.mp4`);
     } catch (error) {
-      alert(`Lỗi khi tải ${cut.name}: ${error.message}`);
-      break;
+      alert(error.message || "Download video failed.");
     }
-  }
-};
+  };
 
-const handleDownloadAllAudioOnly = async () => {
-  if (cuts.length === 0) {
-    alert("Chưa có video nào để xuất audio.");
-    return;
-  }
-
-  for (let i = 0; i < cuts.length; i += 1) {
-    const cut = cuts[i];
-
+  const handleDownloadAudioOnly = async (cut) => {
     try {
       const res = await fetch(`${API_BASE}/api/extract-audio`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...authHeaders,
         },
         body: JSON.stringify({
           inputUrl: cut.src,
@@ -272,18 +237,62 @@ const handleDownloadAllAudioOnly = async () => {
       });
 
       const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.error || `Extract audio failed for ${cut.name}`);
+        throw new Error(data.error || "Extract audio failed.");
       }
-
       await downloadFile(data.outputUrl, `${cut.name}.mp3`);
     } catch (error) {
-      alert(error.message || `Download audio failed for ${cut.name}`);
-      break;
+      alert(error.message || "Download audio failed.");
     }
-  }
-};
+  };
+
+  const handleDownloadAllVideos = async () => {
+    if (cuts.length === 0) {
+      alert("No trimmed videos available.");
+      return;
+    }
+
+    for (const cut of cuts) {
+      try {
+        await downloadFile(cut.src, `${cut.name}.mp4`);
+      } catch (error) {
+        alert(`Download failed for ${cut.name}: ${error.message}`);
+        break;
+      }
+    }
+  };
+
+  const handleDownloadAllAudioOnly = async () => {
+    if (cuts.length === 0) {
+      alert("No trimmed videos available.");
+      return;
+    }
+
+    for (const cut of cuts) {
+      try {
+        const res = await fetch(`${API_BASE}/api/extract-audio`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify({
+            inputUrl: cut.src,
+            originalFilename: `${cut.name}.mp4`,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || `Extract audio failed for ${cut.name}`);
+        }
+        await downloadFile(data.outputUrl, `${cut.name}.mp3`);
+      } catch (error) {
+        alert(`Audio export failed for ${cut.name}: ${error.message}`);
+        break;
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black px-6 py-8 text-white">
