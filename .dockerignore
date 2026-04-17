@@ -1,0 +1,13 @@
+node_modules
+client/node_modules
+server/node_modules
+dist
+build
+tmp
+.git
+.gitignore
+.env
+.env.*
+.vscode
+.idea
+**/*.log
