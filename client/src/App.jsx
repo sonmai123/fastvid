@@ -376,7 +376,11 @@ export default function App() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-sm font-semibold text-white">{item.filename || item.originalName || "Uploaded video"}</div>
-                            <div className="mt-1 text-xs text-gray-400">{item.duration ? `${Math.floor(item.duration / 60)}:${String(Math.floor(item.duration % 60)).padStart(2, "0")}` : "Imported file"}</div>
+                            <div className="mt-1 text-xs text-gray-400">
+                              {item.duration
+                                ? `${Math.floor(item.duration / 60)}:${String(Math.floor(item.duration % 60)).padStart(2, "0")}${item.originalFormat ? ` · ${item.originalFormat.toUpperCase()}` : ""}`
+                                : item.originalFormat || "Imported file"}
+                            </div>
                           </div>
                         </button>
                       );

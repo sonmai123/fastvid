@@ -846,6 +846,70 @@ app.post('/api/extract-audio', requireAuth, async (req, res) => {
     });
   }
 });
+
+app.post('/api/convert-video', requireAuth, async (req, res) => {
+  try {
+    const {
+      inputUrl,
+      originalFilename = "video.mp4",
+      outputFormat = "mp4",
+    } = req.body || {};
+
+    if (!inputUrl || typeof inputUrl !== "string") {
+      return res.status(400).json({ error: "Missing inputUrl." });
+    }
+
+    const normalizedFormat = String(outputFormat || "mp4").trim().toLowerCase();
+    const supportedFormats = ["mp4", "webm", "mov"];
+    if (!supportedFormats.includes(normalizedFormat)) {
+      return res.status(400).json({ error: "Unsupported output format." });
+    }
+
+    let inputPath;
+
+    if (isRemoteUrl(inputUrl)) {
+      inputPath = inputUrl;
+    } else {
+      const inputFilename = decodeURIComponent(inputUrl.split("/media/")[1] || "");
+      if (!inputFilename) {
+        return res.status(400).json({ error: "Invalid inputUrl." });
+      }
+
+      inputPath = path.join(TMP_DIR, inputFilename);
+      if (!fs.existsSync(inputPath)) {
+        return res.status(404).json({ error: "Source media not found on server." });
+      }
+    }
+
+    const outputId = createAssetId();
+    const outputFilename = `${outputId}.${normalizedFormat}`;
+    const outputPath = path.join(TMP_DIR, outputFilename);
+    const args = ["-y", "-i", inputPath];
+
+    if (normalizedFormat === "webm") {
+      args.push("-c:v", "libvpx", "-b:v", "1M", "-c:a", "libvorbis");
+    } else {
+      args.push("-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-c:a", "aac");
+    }
+
+    args.push(outputPath);
+    await runFfmpeg(args);
+
+    const baseUrl = getBaseUrl(req);
+    return res.json({
+      id: outputId,
+      name: `${path.parse(originalFilename).name || "video"}`,
+      outputFilename,
+      outputUrl: `${baseUrl}/media/${outputFilename}`,
+    });
+  } catch (error) {
+    console.error("CONVERT VIDEO ERROR:", error);
+    return res.status(500).json({
+      error: error.message || "Convert video failed.",
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`FastVid API running at http://0.0.0.0:${PORT}`);
 });

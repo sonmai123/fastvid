@@ -10,7 +10,7 @@ function formatTime(value) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-export default function Editor({ video, onBack, token, uploadedVideos = [], onSelectVideo }) {
+export default function Editor({ video, onBack, token }) {
   const videoRef = useRef(null);
   const playerBoxRef = useRef(null);
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
@@ -27,7 +27,7 @@ export default function Editor({ video, onBack, token, uploadedVideos = [], onSe
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [cutting, setCutting] = useState(false);
-  const [selectedVideoId, setSelectedVideoId] = useState(video?.id || video?.src || "");
+  const [downloadFormat, setDownloadFormat] = useState((video?.originalFormat || "mp4").toLowerCase());
 
   const filterStyle = useMemo(() => {
     return {
@@ -46,11 +46,8 @@ export default function Editor({ video, onBack, token, uploadedVideos = [], onSe
     setCurrentTime(0);
     setIsPlaying(false);
     setCutting(false);
-  }, [video.src]);
-
-  useEffect(() => {
-    setSelectedVideoId(video?.id || video?.src || "");
-  }, [video?.id, video?.src]);
+    setDownloadFormat((video?.originalFormat || "mp4").toLowerCase());
+  }, [video.src, video?.originalFormat]);
 
   const handleLoadedMetadata = (e) => {
     const d = e.target.duration || 0;
@@ -127,14 +124,6 @@ export default function Editor({ video, onBack, token, uploadedVideos = [], onSe
     v.currentTime = target;
     setCurrentTime(target);
     setIsPlaying(false);
-  };
-
-  const handleSelectVideo = (nextVideo) => {
-    if (!nextVideo) return;
-    const nextId = nextVideo.id || nextVideo.src || "";
-    if (nextId === selectedVideoId) return;
-    setSelectedVideoId(nextId);
-    onSelectVideo(nextVideo);
   };
 
   const enterFullscreen = async () => {
@@ -216,7 +205,33 @@ export default function Editor({ video, onBack, token, uploadedVideos = [], onSe
 
   const handleDownloadVideo = async (cut) => {
     try {
-      await downloadFile(cut.src, `${cut.name}.mp4`);
+      const format = (downloadFormat || "mp4").toLowerCase();
+      const currentExt = String(cut.src).split("?")[0].split("#")[0].split('.').pop().toLowerCase();
+
+      if (format === currentExt) {
+        await downloadFile(cut.src, `${cut.name}.${format}`);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/api/convert-video`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify({
+          inputUrl: cut.src,
+          originalFilename: `${cut.name}.mp4`,
+          outputFormat: format,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Convert video failed.");
+      }
+
+      await downloadFile(data.outputUrl, `${cut.name}.${format}`);
     } catch (error) {
       alert(error.message || "Download video failed.");
     }
@@ -254,7 +269,7 @@ export default function Editor({ video, onBack, token, uploadedVideos = [], onSe
 
     for (const cut of cuts) {
       try {
-        await downloadFile(cut.src, `${cut.name}.mp4`);
+        await handleDownloadVideo(cut);
       } catch (error) {
         alert(`Download failed for ${cut.name}: ${error.message}`);
         break;
@@ -429,6 +444,7 @@ export default function Editor({ video, onBack, token, uploadedVideos = [], onSe
               />
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
+                <span className="text-sm text-gray-300">Format: {(video.originalFormat || "mp4").toUpperCase()}</span>
                 <button
                   onClick={togglePlayPause}
                   className="rounded-xl bg-slate-600 px-6 py-3 font-semibold transition hover:bg-slate-500"
@@ -485,9 +501,18 @@ export default function Editor({ video, onBack, token, uploadedVideos = [], onSe
                       key={cut.id}
                       className="mb-3 rounded-xl bg-[#1c1c1c] p-3"
                     >
-                      <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                         <span className="truncate text-sm">{cut.name}</span>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={downloadFormat}
+                            onChange={(e) => setDownloadFormat(e.target.value)}
+                            className="rounded-xl border border-white/10 bg-[#0f0f0f] px-3 py-2 text-sm text-white outline-none"
+                          >
+                            <option value="mp4">MP4</option>
+                            <option value="webm">WebM</option>
+                            <option value="mov">MOV</option>
+                          </select>
                           <button
                             onClick={() => handleDownloadVideo(cut)}
                             className="rounded-md bg-orange-500 px-3 py-2 text-sm"
