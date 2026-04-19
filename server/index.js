@@ -17,6 +17,14 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, ".env") });
 
+// Build DATABASE_URL from separate MongoDB env vars when provided.
+if (!process.env.DATABASE_URL) {
+  const { MONGO_USER, MONGO_PASS, MONGO_HOST, MONGO_DB } = process.env;
+  if (MONGO_USER && MONGO_PASS && MONGO_HOST && MONGO_DB) {
+    process.env.DATABASE_URL = `mongodb+srv://${encodeURIComponent(MONGO_USER)}:${encodeURIComponent(MONGO_PASS)}@${MONGO_HOST}/${MONGO_DB}?retryWrites=true&w=majority`;
+  }
+}
+
 const PORT = Number(process.env.PORT || 5000);
 const JWT_SECRET = process.env.JWT_SECRET || 'replace-with-a-strong-secret';
 const TMP_DIR = path.join(__dirname, "tmp");
@@ -145,15 +153,17 @@ async function requireAuth(req, res, next) {
   }
 }
 
-function safeUnlink(filePath) {
-  if (!filePath) return;
-  try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  } catch (error) {
-    console.warn('Failed to delete file:', filePath, error.message);
-  }
+function getScaleFilter(resolution) {
+  const scales = {
+    '144p': '256:144',
+    '240p': '426:240',
+    '360p': '640:360',
+    '480p': '854:480',
+    '720p': '1280:720',
+    '1080p': '1920:1080',
+    '4k': '3840:2160',
+  };
+  return scales[resolution] ? `scale=${scales[resolution]}` : null;
 }
 
 function runYtdlp(args) {
@@ -736,7 +746,7 @@ app.post('/api/import-media', requireAuth, async (req, res) => {
 
 app.post('/api/cut-video', requireAuth, async (req, res) => {
   try {
-    const { inputUrl, originalFilename = 'video.mp4', start, end, brightness = 0, contrast = 0, saturation = 0 } = req.body || {};
+    const { inputUrl, originalFilename = 'video.mp4', start, end, brightness = 0, contrast = 0, saturation = 0, resolution = 'original' } = req.body || {};
     if (!inputUrl || typeof inputUrl !== 'string') {
       return res.status(400).json({ error: 'Missing inputUrl.' });
     }
@@ -769,9 +779,16 @@ app.post('/api/cut-video', requireAuth, async (req, res) => {
     const brightnessValue = 1 + Number(brightness) / 100;
     const contrastValue = 1 + Number(contrast) / 100;
     const saturationValue = 1 + Number(saturation) / 100;
-    const eqFilter = `eq=brightness=${(brightnessValue - 1).toFixed(3)}:contrast=${contrastValue.toFixed(3)}:saturation=${saturationValue.toFixed(3)}`;
+    let vfFilters = [`eq=brightness=${(brightnessValue - 1).toFixed(3)}:contrast=${contrastValue.toFixed(3)}:saturation=${saturationValue.toFixed(3)}`];
 
-    await runFfmpeg(['-y', '-ss', String(startNum), '-to', String(endNum), '-i', inputPath, '-vf', eqFilter, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', '-movflags', '+faststart', outputPath]);
+    const scaleFilter = getScaleFilter(resolution);
+    console.log('CUT VIDEO - resolution:', resolution, 'scaleFilter:', scaleFilter);
+    if (scaleFilter) {
+      vfFilters.push(scaleFilter);
+    }
+    console.log('CUT VIDEO - vfFilters:', vfFilters.join(','));
+
+    await runFfmpeg(['-y', '-ss', String(startNum), '-to', String(endNum), '-i', inputPath, '-vf', vfFilters.join(','), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', '-movflags', '+faststart', outputPath]);
 
     const baseUrl = getBaseUrl(req);
     return res.json({
@@ -853,6 +870,7 @@ app.post('/api/convert-video', requireAuth, async (req, res) => {
       inputUrl,
       originalFilename = "video.mp4",
       outputFormat = "mp4",
+      resolution = "original",
     } = req.body || {};
 
     if (!inputUrl || typeof inputUrl !== "string") {
@@ -885,6 +903,13 @@ app.post('/api/convert-video', requireAuth, async (req, res) => {
     const outputFilename = `${outputId}.${normalizedFormat}`;
     const outputPath = path.join(TMP_DIR, outputFilename);
     const args = ["-y", "-i", inputPath];
+
+    const scaleFilter = getScaleFilter(resolution);
+    console.log('CONVERT VIDEO - resolution:', resolution, 'scaleFilter:', scaleFilter);
+    if (scaleFilter) {
+      args.push("-vf", scaleFilter);
+    }
+    console.log('CONVERT VIDEO - args:', args);
 
     if (normalizedFormat === "webm") {
       args.push("-c:v", "libvpx", "-b:v", "1M", "-c:a", "libvorbis");

@@ -1,3 +1,4 @@
+import { useRef, useState, useEffect } from "react";
 import { Range, getTrackBackground } from "react-range";
 
 function formatTime(value) {
@@ -13,12 +14,56 @@ export default function TrimTimeline({
   end,
   currentTime,
   onChange,
+  onPlayheadChange,
 }) {
+  const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
+  const trackRef = useRef(null);
+
   const safeDuration = Math.max(duration || 0, 0.1);
-  const values = [start, end];
+  // Ensure values are within bounds and properly aligned
+  const alignedStart = Math.max(0, Math.min(start, safeDuration));
+  const alignedEnd = Math.max(0, Math.min(end, safeDuration));
+  const values = [alignedStart, alignedEnd];
   const tickCount = Math.min(12, Math.max(2, Math.floor(safeDuration / 2)));
   const playheadLeft =
     duration > 0 ? `${(currentTime / duration) * 100}%` : "0%";
+
+  const handlePlayheadMouseDown = (e) => {
+    e.preventDefault();
+    setIsDraggingPlayhead(true);
+  };
+
+  useEffect(() => {
+    if (!isDraggingPlayhead) return;
+
+    const handleMouseMove = (e) => {
+      if (!trackRef.current) return;
+
+      const rect = trackRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percentage = Math.max(0, Math.min(1, x / rect.width));
+      const newTime = percentage * duration;
+
+      // Constrain to start and end bounds
+      const constrainedTime = Math.max(start, Math.min(end, newTime));
+
+      if (onPlayheadChange) {
+        onPlayheadChange(constrainedTime);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingPlayhead(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDraggingPlayhead, duration, start, end, onPlayheadChange]);
 
   return (
     <div className="w-full">
@@ -37,13 +82,17 @@ export default function TrimTimeline({
           ))}
         </div>
 
-        <div className="relative">
+        <div className="relative" ref={trackRef}>
           <div
-            className="pointer-events-none absolute top-0 z-10 h-full w-[2px] bg-white/90"
-            style={{ left: playheadLeft }}
+            onMouseDown={handlePlayheadMouseDown}
+            className={`absolute top-0 z-10 h-full w-[2px] bg-white/90 cursor-pointer ${
+              isDraggingPlayhead ? "bg-yellow-400" : ""
+            }`}
+            style={{ left: playheadLeft, pointerEvents: "auto" }}
           />
 
           <Range
+            key={`range-${safeDuration}-${alignedStart}-${alignedEnd}`}
             values={values}
             step={0.1}
             min={0}
@@ -92,8 +141,9 @@ export default function TrimTimeline({
 
               return (
                 <div
+                  key={`thumb-${index}`}
                   {...thumbProps}
-                  className="outline-none"
+                  className="pointer-events-auto outline-none"
                   style={style}
                 >
                   <div className="relative flex items-center justify-center">

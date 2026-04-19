@@ -29,6 +29,12 @@ export default function Editor({ video, onBack, token }) {
   const [cutting, setCutting] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState((video?.originalFormat || "mp4").toLowerCase());
 
+  // New states for additional features
+  const [isDarkMode, setIsDarkMode] = useState(true); // Default to dark
+  const [volume, setVolume] = useState(1); // 0 to 1
+  const [resolution, setResolution] = useState("original"); // original, 720p, 1080p, etc.
+  const [playbackRate, setPlaybackRate] = useState(1); // 0.5 to 2
+
   const filterStyle = useMemo(() => {
     return {
       filter: `brightness(${100 + brightness}%) contrast(${100 + contrast}%) saturate(${100 + saturation}%)`,
@@ -48,6 +54,14 @@ export default function Editor({ video, onBack, token }) {
     setCutting(false);
     setDownloadFormat((video?.originalFormat || "mp4").toLowerCase());
   }, [video.src, video?.originalFormat]);
+
+  // Apply volume and playback rate to video element
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume;
+      videoRef.current.playbackRate = playbackRate;
+    }
+  }, [volume, playbackRate]);
 
   const handleLoadedMetadata = (e) => {
     const d = e.target.duration || 0;
@@ -140,6 +154,26 @@ export default function Editor({ video, onBack, token }) {
     }
   };
 
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
+  const handleVolumeChange = (e) => {
+    setVolume(Number(e.target.value));
+  };
+
+  const handlePlaybackRateChange = (e) => {
+    setPlaybackRate(Number(e.target.value));
+  };
+
+  const handlePlayheadChange = (newTime) => {
+    const v = videoRef.current;
+    if (v) {
+      v.currentTime = newTime;
+      setCurrentTime(newTime);
+    }
+  };
+
   const handleCut = async () => {
     if (duration <= 0 || end <= start) return;
 
@@ -160,6 +194,7 @@ export default function Editor({ video, onBack, token }) {
           brightness,
           contrast,
           saturation,
+          resolution, // Add resolution
         }),
       });
 
@@ -223,6 +258,7 @@ export default function Editor({ video, onBack, token }) {
           inputUrl: cut.src,
           originalFilename: `${cut.name}.mp4`,
           outputFormat: format,
+          resolution: resolution, // Add resolution
         }),
       });
 
@@ -310,7 +346,7 @@ export default function Editor({ video, onBack, token }) {
   };
 
   return (
-    <div className="min-h-screen bg-black px-6 py-8 text-white">
+    <div className={`min-h-screen px-6 py-8 ${isDarkMode ? 'bg-black text-white' : 'bg-white text-black'}`}>
       <div className="mx-auto w-full max-w-[1600px]">
         <div className="mb-8 flex justify-center">
           <img
@@ -318,6 +354,16 @@ export default function Editor({ video, onBack, token }) {
             alt="FastVid Logo"
             className="h-auto w-auto max-w-[320px] object-contain"
           />
+        </div>
+
+        {/* Dark Mode Toggle */}
+        <div className="mb-4 flex justify-end">
+          <button
+            onClick={toggleDarkMode}
+            className={`rounded-xl px-4 py-2 font-semibold transition ${isDarkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-300 hover:bg-gray-400 text-black'}`}
+          >
+            {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+          </button>
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)_320px]">
@@ -386,6 +432,61 @@ export default function Editor({ video, onBack, token }) {
                   className="w-full"
                 />
               </div>
+
+              {/* Volume Control */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-2xl">Volume</span>
+                  <span className="text-sm">{Math.round(volume * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={volume}
+                  onChange={handleVolumeChange}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Resolution Select */}
+              <div>
+                <div className="mb-4">
+                  <span className="text-2xl">Resolution</span>
+                </div>
+                <select
+                  value={resolution}
+                  onChange={(e) => setResolution(e.target.value)}
+                  className="w-full rounded-lg bg-[#4a4a4a] px-4 py-2 text-white"
+                >
+                  <option value="original">Original</option>
+                  <option value="144p">144p</option>
+                  <option value="240p">240p</option>
+                  <option value="360p">360p</option>
+                  <option value="480p">480p</option>
+                  <option value="720p">720p</option>
+                  <option value="1080p">1080p</option>
+                  <option value="4k">4K</option>
+                </select>
+              </div>
+
+              {/* Playback Rate */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-2xl">Speed</span>
+                  <span className="text-sm">{playbackRate}x</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.25"
+                  max="8"
+                  step="0.25"
+                  value={playbackRate}
+                  onChange={handlePlaybackRateChange}
+                  className="w-full"
+                />
+              </div>
             </div>
           </div>
 
@@ -441,6 +542,7 @@ export default function Editor({ video, onBack, token }) {
                 end={end}
                 currentTime={currentTime}
                 onChange={handleTrimChange}
+                onPlayheadChange={handlePlayheadChange}
               />
 
               <div className="mt-6 flex flex-wrap items-center gap-3">

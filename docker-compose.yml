@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # MongoDB Service
+  mongodb:
+    image: mongo:latest
+    container_name: fastvid-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - fastvid-network
+
+  # Backend Service
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: fastvid-backend
+    environment:
+      PORT: 5000
+      MONGO_USER: mainganson11146_db_user
+      MONGO_PASS: f0R5R6YYD09Vm3mq
+      MONGO_HOST: cluster0.zhoxhpk.mongodb.net
+      MONGO_DB: fastvid
+      JWT_SECRET: your-long-random-secret-key
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+    networks:
+      - fastvid-network
+
+  # Frontend Service (optional)
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: fastvid-frontend
+    environment:
+      VITE_API_BASE: http://localhost:5000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - fastvid-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  fastvid-network:
+    driver: bridge
