@@ -953,8 +953,8 @@ app.post('/api/convert-video', requireAuth, async (req, res) => {
   }
 });
 
-app.listen(PORT, '127.0.0.1', async () => {
-  console.log(`FastVid API running at http://127.0.0.1:${PORT}`);
+app.listen(PORT, '0.0.0.0', async () => {
+  console.log(`FastVid API running at http://0.0.0.0:${PORT}`);
 
   // Test MongoDB connection
   try {
