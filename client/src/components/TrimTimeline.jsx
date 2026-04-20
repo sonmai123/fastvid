@@ -92,7 +92,6 @@ export default function TrimTimeline({
           />
 
           <Range
-            key={`range-${safeDuration}-${alignedStart}-${alignedEnd}`}
             values={values}
             step={0.1}
             min={0}

@@ -29,7 +29,7 @@ model Video {
   id                String     @id @default(auto()) @map("_id") @db.ObjectId
   userId            String     @db.ObjectId
   assetId           String     @unique
-  storedFilename    String
+  storedFilename    String?
   originalName      String
   originalFormat    String
   playbackUrl       String

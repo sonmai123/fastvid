@@ -40,6 +40,20 @@ export default function Editor({ video, onBack, token, isDarkMode, onToggleDarkM
     };
   }, [brightness, contrast, saturation]);
 
+  const resolutionPreviewStyle = useMemo(() => {
+    if (resolution === "original") {
+      return {};
+    }
+
+    return {
+      width: "100%",
+      height: "100%",
+      maxWidth: "100%",
+      maxHeight: "100%",
+      imageRendering: "pixelated",
+    };
+  }, [resolution]);
+
   const theme = {
     surface: isDarkMode ? "bg-[#161616] text-white border-white/10" : "bg-[#ACFFFC] text-slate-900 border-slate-200",
     card: isDarkMode ? "bg-[#111111] text-white border-white/10" : "bg-[#E6FFFF] text-slate-900 border-slate-200",
@@ -516,9 +530,8 @@ const handleVideoError = (e) => {
                     onPause={() => setIsPlaying(false)}
                     onError={handleVideoError}
                     onClick={togglePlayPause}
-                    style={filterStyle}
+                    style={{ ...filterStyle, ...resolutionPreviewStyle }}
                     className="h-full w-full cursor-pointer object-contain"
-              
                   />
 
                   <button
