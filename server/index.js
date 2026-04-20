@@ -196,17 +196,20 @@ function getScaleFilter(resolution) {
 
 function runYtdlp(args) {
   return new Promise((resolve, reject) => {
-    const localYtdlpPath = path.join(
+    const localBinDir = path.join(__dirname, "node_modules", ".bin");
+    const localYtdlpCmd = process.platform === "win32" ? "yt-dlp.cmd" : "yt-dlp";
+    const localYtdlpPath = path.join(localBinDir, localYtdlpCmd);
+    const fallbackYtdlpPath = path.join(
       __dirname,
       process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp"
     );
-    const ytdlpPath = fs.existsSync(localYtdlpPath) ? localYtdlpPath : "yt-dlp";
+    const ytdlpPath = fs.existsSync(localYtdlpPath)
+      ? localYtdlpPath
+      : fs.existsSync(fallbackYtdlpPath)
+      ? fallbackYtdlpPath
+      : "yt-dlp";
 
-    if (process.platform === "win32" && !fs.existsSync(localYtdlpPath)) {
-      return reject(new Error(`yt-dlp binary not found at ${localYtdlpPath}`));
-    }
-
-    const yt = spawn(ytdlpPath, ["--js-runtimes", "deno", ...args], {
+    const yt = spawn(ytdlpPath, ["--no-check-certificate", "--no-progress", ...args], {
       windowsHide: true,
     });
 
