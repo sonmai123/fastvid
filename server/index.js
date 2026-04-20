@@ -57,17 +57,18 @@ if (!fs.existsSync(TMP_DIR)) {
   fs.mkdirSync(TMP_DIR, { recursive: true });
 }
 
-app.use(cors());
+const corsOptions = {
+  origin: true,
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Range"],
+  exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Type"],
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 app.use("/media", express.static(TMP_DIR));
-
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, Range");
-  res.header("Accept-Ranges", "bytes");
-  next();
-});
 
 const upload = multer({
   dest: TMP_DIR,
