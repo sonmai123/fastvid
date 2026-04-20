@@ -6,6 +6,7 @@ const STORAGE_KEY = "fastvid_auth";
 
 export default function App() {
   const [video, setVideo] = useState(null);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -241,8 +242,16 @@ export default function App() {
     }
   };
 
+  const toggleDarkMode = () => setIsDarkMode((prev) => !prev);
+  const appRootClass = isDarkMode ? "min-h-screen bg-black text-white" : "min-h-screen bg-[#ACFFFC] text-slate-900";
+  const loginCardClass = isDarkMode ? "bg-[#1d1d1d]" : "bg-white shadow-lg";
+  const mainPageBg = isDarkMode ? "bg-[#050505] text-white" : "bg-[#E6FFFF] text-slate-900";
+  const loginInputClass = isDarkMode ? "mt-2 w-full rounded-2xl border border-gray-700 bg-[#111111] px-4 py-3 text-white outline-none" : "mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none";
+  const loginLabelClass = isDarkMode ? "block text-sm text-gray-400" : "block text-sm text-slate-700";
+  const mainHeaderClass = isDarkMode ? "mb-6 flex flex-col gap-4 rounded-[30px] border border-white/10 bg-[#111111] p-5 md:flex-row md:items-center md:justify-between" : "mb-6 flex flex-col gap-4 rounded-[30px] border border-slate-200 bg-white p-5 md:flex-row md:items-center md:justify-between";
+
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className={appRootClass}>
       {!user ? (
         <div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col items-center justify-center px-6 py-10">
           <div className="mb-8 flex h-24 w-full items-center justify-center">
@@ -253,9 +262,16 @@ export default function App() {
             />
           </div>
 
-          <div className="w-full max-w-[500px] space-y-6 rounded-[40px] bg-[#1d1d1d] px-8 py-10 shadow-xl">
-            <div className="text-center text-3xl font-semibold text-white">
-              {authMode === "login" ? "Sign in to FastVid" : "Create your account"}
+          <div className={`w-full max-w-[500px] space-y-6 rounded-[40px] px-8 py-10 shadow-xl ${loginCardClass}`}>
+            <div className="flex items-center justify-between gap-4">
+              <div className="text-3xl font-semibold">{authMode === "login" ? "Sign in to FastVid" : "Create your account"}</div>
+              <button
+                type="button"
+                onClick={toggleDarkMode}
+                className="rounded-full bg-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-600"
+              >
+                {isDarkMode ? "Light Mode" : "Dark Mode"}
+              </button>
             </div>
 
             {error && (
@@ -266,33 +282,33 @@ export default function App() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-400">Email</label>
+                <label className={loginLabelClass}>Email</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-gray-700 bg-[#111111] px-4 py-3 text-white outline-none"
+                  className={loginInputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400">Password</label>
+                <label className={loginLabelClass}>Password</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-gray-700 bg-[#111111] px-4 py-3 text-white outline-none"
+                  className={loginInputClass}
                 />
               </div>
 
               {authMode === "register" && (
                 <div>
-                  <label className="block text-sm text-gray-400">Display name</label>
+                  <label className={loginLabelClass}>Display name</label>
                   <input
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-gray-700 bg-[#111111] px-4 py-3 text-white outline-none"
+                    className={loginInputClass}
                   />
                 </div>
               )}
@@ -318,13 +334,20 @@ export default function App() {
           </div>
         </div>
       ) : !video ? (
-        <div className="min-h-screen bg-[#050505] px-6 py-8 text-white">
+        <div className={`min-h-screen px-6 py-8 ${mainPageBg}`}>
           <div className="mx-auto w-full max-w-[1800px]">
-            <div className="mb-6 flex flex-col gap-4 rounded-[30px] border border-white/10 bg-[#111111] p-5 md:flex-row md:items-center md:justify-between">
+            <div className={mainHeaderClass}>
               <div>
                 <img src="/FastVid_Logo.png" alt="FastVid Logo" className="h-16 w-auto" />
-                <p className="mt-2 text-sm text-gray-400">FastVid dashboard: upload, select, and trim faster.</p>
+                <p className={isDarkMode ? "mt-2 text-sm text-gray-400" : "mt-2 text-sm text-slate-700"}>FastVid dashboard: upload, select, and trim faster.</p>
               </div>
+              <button
+                type="button"
+                onClick={toggleDarkMode}
+                className="rounded-full bg-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-600"
+              >
+                {isDarkMode ? "Light Mode" : "Dark Mode"}
+              </button>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="rounded-full bg-white/5 px-4 py-3 text-sm text-gray-300">
                   Signed in as <span className="font-semibold text-white">{user.displayName || user.email}</span>
@@ -482,6 +505,8 @@ export default function App() {
           token={token}
           uploadedVideos={uploadedVideos}
           onSelectVideo={(nextVideo) => setVideo(nextVideo)}
+          isDarkMode={isDarkMode}
+          onToggleDarkMode={toggleDarkMode}
         />
       )}
     </div>

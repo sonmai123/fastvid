@@ -33,7 +33,9 @@ const prisma = new PrismaClient({ log: ["error", "warn"] });
 const app = express();
 
 function getBaseUrl(req) {
-  return `${req.protocol}://${req.get("host")}`;
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || req.headers["x-forwarded-protocol"] || req.protocol || "https").split(",")[0].trim();
+  const protocol = forwardedProto === "http" ? "https" : forwardedProto;
+  return `${protocol}://${req.get("host")}`;
 }
 
 if (!fs.existsSync(TMP_DIR)) {

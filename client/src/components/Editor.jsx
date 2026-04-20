@@ -10,7 +10,7 @@ function formatTime(value) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-export default function Editor({ video, onBack, token }) {
+export default function Editor({ video, onBack, token, isDarkMode, onToggleDarkMode }) {
   const videoRef = useRef(null);
   const playerBoxRef = useRef(null);
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
@@ -30,7 +30,6 @@ export default function Editor({ video, onBack, token }) {
   const [downloadFormat, setDownloadFormat] = useState((video?.originalFormat || "mp4").toLowerCase());
 
   // New states for additional features
-  const [isDarkMode, setIsDarkMode] = useState(true); // Default to dark
   const [volume, setVolume] = useState(1); // 0 to 1
   const [resolution, setResolution] = useState("original"); // original, 720p, 1080p, etc.
   const [playbackRate, setPlaybackRate] = useState(1); // 0.5 to 2
@@ -40,6 +39,15 @@ export default function Editor({ video, onBack, token }) {
       filter: `brightness(${100 + brightness}%) contrast(${100 + contrast}%) saturate(${100 + saturation}%)`,
     };
   }, [brightness, contrast, saturation]);
+
+  const theme = {
+    surface: isDarkMode ? "bg-[#161616] text-white border-white/10" : "bg-[#ACFFFC] text-slate-900 border-slate-200",
+    card: isDarkMode ? "bg-[#111111] text-white border-white/10" : "bg-[#E6FFFF] text-slate-900 border-slate-200",
+    input: isDarkMode ? "bg-[#4a4a4a] text-white" : "bg-white text-slate-900",
+    box: isDarkMode ? "bg-[#1f1f1f]" : "bg-[#ACFFFC]",
+    button: isDarkMode ? "text-white" : "text-slate-900",
+    infoText: isDarkMode ? "text-gray-300" : "text-slate-900",
+  };
 
   useEffect(() => {
     setCuts([]);
@@ -152,10 +160,6 @@ export default function Editor({ video, onBack, token }) {
     if (el.requestFullscreen) {
       await el.requestFullscreen();
     }
-  };
-
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
   };
 
   const handleVolumeChange = (e) => {
@@ -359,16 +363,16 @@ export default function Editor({ video, onBack, token }) {
         {/* Dark Mode Toggle */}
         <div className="mb-4 flex justify-end">
           <button
-            onClick={toggleDarkMode}
-            className={`rounded-xl px-4 py-2 font-semibold transition ${isDarkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-300 hover:bg-gray-400 text-black'}`}
+            onClick={onToggleDarkMode}
+            className="rounded-xl bg-slate-700 px-4 py-2 font-semibold text-white transition hover:bg-slate-600"
           >
             {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </button>
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)_320px]">
-          <div className="overflow-hidden rounded-[28px] bg-[#1f1f1f]">
-            <div className="bg-[#b55400] px-6 py-5 text-2xl font-semibold">
+          <div className={`overflow-hidden rounded-[28px] ${theme.box}`}>
+            <div className="bg-[#b55400] px-6 py-5 text-2xl font-semibold text-white">
               Adjustments
             </div>
 
@@ -378,7 +382,7 @@ export default function Editor({ video, onBack, token }) {
                   <span className="text-2xl">Brightness</span>
                   <button
                     onClick={() => setBrightness(0)}
-                    className="rounded-lg bg-[#4a4a4a] px-4 py-2 text-sm"
+                    className={`rounded-lg bg-[#4a4a4a] px-4 py-2 text-sm ${theme.button}`}
                   >
                     Reset
                   </button>
@@ -398,7 +402,7 @@ export default function Editor({ video, onBack, token }) {
                   <span className="text-2xl">Contrast</span>
                   <button
                     onClick={() => setContrast(0)}
-                    className="rounded-lg bg-[#4a4a4a] px-4 py-2 text-sm"
+                    className={`rounded-lg bg-[#4a4a4a] px-4 py-2 text-sm ${theme.button}`}
                   >
                     Reset
                   </button>
@@ -418,7 +422,7 @@ export default function Editor({ video, onBack, token }) {
                   <span className="text-2xl">Saturation</span>
                   <button
                     onClick={() => setSaturation(0)}
-                    className="rounded-lg bg-[#4a4a4a] px-4 py-2 text-sm"
+                    className={`rounded-lg bg-[#4a4a4a] px-4 py-2 text-sm ${theme.button}`}
                   >
                     Reset
                   </button>
@@ -458,7 +462,7 @@ export default function Editor({ video, onBack, token }) {
                 <select
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value)}
-                  className="w-full rounded-lg bg-[#4a4a4a] px-4 py-2 text-white"
+                  className={`w-full rounded-lg px-4 py-2 ${theme.input}`}
                 >
                   <option value="original">Original</option>
                   <option value="144p">144p</option>
@@ -491,8 +495,8 @@ export default function Editor({ video, onBack, token }) {
           </div>
 
           <div className="flex min-w-0 flex-col gap-6">
-            <div className="overflow-hidden rounded-[28px] bg-[#1f1f1f]">
-              <div className="bg-[#b55400] px-6 py-5 text-2xl font-semibold">
+            <div className={`overflow-hidden rounded-[28px] ${theme.box}`}>
+              <div className="bg-[#b55400] px-6 py-5 text-2xl font-semibold text-white">
                 Player
               </div>
 
@@ -529,8 +533,8 @@ export default function Editor({ video, onBack, token }) {
               </div>
             </div>
 
-            <div className="rounded-[28px] bg-[#2d2d2d] px-6 py-6">
-              <div className="mb-4 flex flex-wrap gap-4 text-sm text-gray-300">
+            <div className={`rounded-[28px] px-6 py-6 ${theme.card}`}>
+              <div className={`mb-4 flex flex-wrap gap-4 text-sm ${theme.infoText}`}>
                 <span>Duration: {formatTime(duration)}</span>
                 <span>Start: {formatTime(start)}</span>
                 <span>End: {formatTime(end)}</span>
@@ -546,24 +550,24 @@ export default function Editor({ video, onBack, token }) {
               />
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
-                <span className="text-sm text-gray-300">Format: {(video.originalFormat || "mp4").toUpperCase()}</span>
+                <span className={`text-sm ${theme.infoText}`}>Format: {(video.originalFormat || "mp4").toUpperCase()}</span>
                 <button
                   onClick={togglePlayPause}
-                  className="rounded-xl bg-slate-600 px-6 py-3 font-semibold transition hover:bg-slate-500"
+                  className={`rounded-xl bg-slate-600 px-6 py-3 font-semibold transition hover:bg-slate-500 ${theme.button}`}
                 >
                   {isPlaying ? "Pause" : "Play"}
                 </button>
 
                 <button
                   onClick={jumpToStart}
-                  className="rounded-xl bg-gray-600 px-6 py-3 font-semibold transition hover:bg-gray-500"
+                  className={`rounded-xl bg-gray-600 px-6 py-3 font-semibold transition hover:bg-gray-500 ${theme.button}`}
                 >
                   Jump to Start
                 </button>
 
                 <button
                   onClick={jumpToEnd}
-                  className="rounded-xl bg-gray-600 px-6 py-3 font-semibold transition hover:bg-gray-500"
+                  className={`rounded-xl bg-gray-600 px-6 py-3 font-semibold transition hover:bg-gray-500 ${theme.button}`}
                 >
                   Jump to End
                 </button>
@@ -571,14 +575,14 @@ export default function Editor({ video, onBack, token }) {
                 <button
                   onClick={handleCut}
                   disabled={cutting}
-                  className="rounded-xl bg-orange-500 px-6 py-3 font-semibold transition hover:bg-orange-600 disabled:opacity-60"
+                  className={`rounded-xl bg-orange-500 px-6 py-3 font-semibold transition hover:bg-orange-600 disabled:opacity-60 ${theme.button}`}
                 >
                   {cutting ? "Cutting..." : "Cut Video"}
                 </button>
 
                 <button
                   onClick={onBack}
-                  className="rounded-xl bg-blue-600 px-6 py-3 font-semibold transition hover:bg-blue-700"
+                  className={`rounded-xl bg-blue-600 px-6 py-3 font-semibold transition hover:bg-blue-700 ${theme.button}`}
                 >
                   Return to Main page
                 </button>
@@ -586,13 +590,13 @@ export default function Editor({ video, onBack, token }) {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[28px] bg-[#1f1f1f]">
-            <div className="bg-[#b55400] px-6 py-5 text-2xl font-semibold">
+          <div className={`overflow-hidden rounded-[28px] ${theme.box}`}>
+            <div className="bg-[#b55400] px-6 py-5 text-2xl font-semibold text-white">
               Cut Videos
             </div>
 
             <div className="space-y-4 p-4">
-              <div className="min-h-[260px] rounded-2xl bg-[#111111] p-4">
+              <div className={`min-h-[260px] rounded-2xl p-4 ${theme.card}`}>
                 {cuts.length === 0 ? (
                   <p className="text-sm text-gray-400">
                     No trimmed videos yet.
@@ -601,7 +605,7 @@ export default function Editor({ video, onBack, token }) {
                   cuts.map((cut) => (
                     <div
                       key={cut.id}
-                      className="mb-3 rounded-xl bg-[#1c1c1c] p-3"
+                      className={`mb-3 rounded-xl p-3 ${theme.card}`}
                     >
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                         <span className="truncate text-sm">{cut.name}</span>
@@ -609,7 +613,7 @@ export default function Editor({ video, onBack, token }) {
                           <select
                             value={downloadFormat}
                             onChange={(e) => setDownloadFormat(e.target.value)}
-                            className="rounded-xl border border-white/10 bg-[#0f0f0f] px-3 py-2 text-sm text-white outline-none"
+                            className={`rounded-xl border px-3 py-2 text-sm outline-none ${theme.input} ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}
                           >
                             <option value="mp4">MP4</option>
                             <option value="webm">WebM</option>
@@ -617,14 +621,14 @@ export default function Editor({ video, onBack, token }) {
                           </select>
                           <button
                             onClick={() => handleDownloadVideo(cut)}
-                            className="rounded-md bg-orange-500 px-3 py-2 text-sm"
+                            className={`rounded-md bg-orange-500 px-3 py-2 text-sm ${theme.button}`}
                             title="Download video"
                           >
                             ⬇
                           </button>
                           <button
                             onClick={() => handleDownloadAudioOnly(cut)}
-                            className="rounded-md bg-blue-600 px-3 py-2 text-sm"
+                            className={`rounded-md bg-blue-600 px-3 py-2 text-sm ${theme.button}`}
                             title="Download audio only"
                           >
                             🔊
@@ -642,13 +646,13 @@ export default function Editor({ video, onBack, token }) {
               <div className="grid grid-cols-1 gap-3">
                 <button
                   onClick={handleDownloadAllVideos}
-                  className="rounded-xl bg-orange-500 px-4 py-3 text-sm font-semibold"
+                  className={`rounded-xl bg-orange-500 px-4 py-3 text-sm font-semibold ${theme.button}`}
                 >
                   Download all videos
                 </button>
                 <button
                   onClick={handleDownloadAllAudioOnly}
-                  className="rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold"
+                  className={`rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold ${theme.button}`}
                 >
                   Download all audio only
                 </button>
