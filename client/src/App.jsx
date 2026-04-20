@@ -1,8 +1,49 @@
 import { useEffect, useState } from "react";
 import Editor from "./components/Editor";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+const API_BASE = (import.meta.env.VITE_API_BASE || "http://localhost:5000").replace(/\/$/, "");
 const STORAGE_KEY = "fastvid_auth";
+
+const normalizeMediaUrl = (url) => {
+  if (!url || typeof url !== "string") return "";
+
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+
+  if (/^https?:\/\/localhost(?::\d+)?/i.test(trimmed)) {
+    return trimmed.replace(/^https:/i, "http:");
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("//")) {
+    return `http:${trimmed}`;
+  }
+
+  if (trimmed.startsWith("/")) {
+    return `${API_BASE}${trimmed}`;
+  }
+
+  return `${API_BASE}/${trimmed.replace(/^\.?\//, "")}`;
+};
+
+const normalizeVideoItem = (item = {}) => {
+  const playbackUrl = normalizeMediaUrl(item.playbackUrl || item.src || item.url || "");
+  const thumbnailUrl = normalizeMediaUrl(
+    item.thumbnailUrl || item.poster || item.thumbnail || ""
+  );
+
+  return {
+    ...item,
+    src: playbackUrl,
+    playbackUrl,
+    thumbnailUrl,
+    poster: thumbnailUrl,
+    filename: item.filename || item.originalName || "Uploaded Video",
+  };
+};
 
 export default function App() {
   const [video, setVideo] = useState(null);
@@ -45,7 +86,11 @@ export default function App() {
       }
 
       const data = await res.json();
-      setUploadedVideos(data.videos || []);
+      const normalizedVideos = Array.isArray(data.videos)
+        ? data.videos.map((item) => normalizeVideoItem(item))
+        : [];
+
+      setUploadedVideos(normalizedVideos);
     } catch (err) {
       console.warn("Load uploaded videos failed:", err);
       setUploadedVideos([]);
@@ -141,9 +186,10 @@ export default function App() {
       setError("");
       setStatus(authMode === "login" ? "Signing in..." : "Creating account...");
 
-      const payload = authMode === "login"
-        ? { email, password }
-        : { email, password, displayName };
+      const payload =
+        authMode === "login"
+          ? { email, password }
+          : { email, password, displayName };
 
       const res = await fetch(`${API_BASE}/api/auth/${authMode}`, {
         method: "POST",
@@ -192,11 +238,14 @@ export default function App() {
       if (!res.ok) throw new Error(data.error || "Upload failed.");
 
       await fetchUploadedVideos();
-      setVideo({
+
+      const normalizedVideo = normalizeVideoItem({
         ...data,
-        src: data.playbackUrl,
         filename: data.originalName || data.filename,
       });
+
+      console.log("Uploaded video:", normalizedVideo);
+      setVideo(normalizedVideo);
     } catch (err) {
       setError(err.message || "Upload failed.");
     } finally {
@@ -212,9 +261,17 @@ export default function App() {
       setLoading(true);
       setError("");
 
-      const isPlatformUrl = /(?:youtube\.com|youtu\.be|facebook\.com|fb\.watch|tiktok\.com|vt\.tiktok\.com)/i.test(url.trim());
+      const isPlatformUrl =
+        /(?:youtube\.com|youtu\.be|facebook\.com|fb\.watch|tiktok\.com|vt\.tiktok\.com)/i.test(
+          url.trim()
+        );
+
       const endpoint = isPlatformUrl ? "/api/import-media" : "/api/import-url";
-      setStatus(isPlatformUrl ? "Resolving platform stream and loading playback..." : "Resolving direct video stream...");
+      setStatus(
+        isPlatformUrl
+          ? "Resolving platform stream and loading playback..."
+          : "Resolving direct video stream..."
+      );
 
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
@@ -229,11 +286,14 @@ export default function App() {
       if (!res.ok) throw new Error(data.error || "Import failed.");
 
       await fetchUploadedVideos();
-      setVideo({
+
+      const normalizedVideo = normalizeVideoItem({
         ...data,
-        src: data.playbackUrl,
         filename: data.originalName || data.filename,
       });
+
+      console.log("Imported video:", normalizedVideo);
+      setVideo(normalizedVideo);
     } catch (err) {
       setError(err.message || "Import failed.");
     } finally {
@@ -243,12 +303,18 @@ export default function App() {
   };
 
   const toggleDarkMode = () => setIsDarkMode((prev) => !prev);
-  const appRootClass = isDarkMode ? "min-h-screen bg-black text-white" : "min-h-screen bg-[#ACFFFC] text-slate-900";
+  const appRootClass = isDarkMode
+    ? "min-h-screen bg-black text-white"
+    : "min-h-screen bg-[#ACFFFC] text-slate-900";
   const loginCardClass = isDarkMode ? "bg-[#1d1d1d]" : "bg-white shadow-lg";
   const mainPageBg = isDarkMode ? "bg-[#050505] text-white" : "bg-[#E6FFFF] text-slate-900";
-  const loginInputClass = isDarkMode ? "mt-2 w-full rounded-2xl border border-gray-700 bg-[#111111] px-4 py-3 text-white outline-none" : "mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none";
+  const loginInputClass = isDarkMode
+    ? "mt-2 w-full rounded-2xl border border-gray-700 bg-[#111111] px-4 py-3 text-white outline-none"
+    : "mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none";
   const loginLabelClass = isDarkMode ? "block text-sm text-gray-400" : "block text-sm text-slate-700";
-  const mainHeaderClass = isDarkMode ? "mb-6 flex flex-col gap-4 rounded-[30px] border border-white/10 bg-[#111111] p-5 md:flex-row md:items-center md:justify-between" : "mb-6 flex flex-col gap-4 rounded-[30px] border border-slate-200 bg-white p-5 md:flex-row md:items-center md:justify-between";
+  const mainHeaderClass = isDarkMode
+    ? "mb-6 flex flex-col gap-4 rounded-[30px] border border-white/10 bg-[#111111] p-5 md:flex-row md:items-center md:justify-between"
+    : "mb-6 flex flex-col gap-4 rounded-[30px] border border-slate-200 bg-white p-5 md:flex-row md:items-center md:justify-between";
 
   return (
     <div className={appRootClass}>
@@ -264,7 +330,9 @@ export default function App() {
 
           <div className={`w-full max-w-[500px] space-y-6 rounded-[40px] px-8 py-10 shadow-xl ${loginCardClass}`}>
             <div className="flex items-center justify-between gap-4">
-              <div className="text-3xl font-semibold">{authMode === "login" ? "Sign in to FastVid" : "Create your account"}</div>
+              <div className="text-3xl font-semibold">
+                {authMode === "login" ? "Sign in to FastVid" : "Create your account"}
+              </div>
               <button
                 type="button"
                 onClick={toggleDarkMode}
@@ -339,7 +407,9 @@ export default function App() {
             <div className={mainHeaderClass}>
               <div>
                 <img src="/FastVid_Logo.png" alt="FastVid Logo" className="h-16 w-auto" />
-                <p className={isDarkMode ? "mt-2 text-sm text-gray-400" : "mt-2 text-sm text-slate-700"}>FastVid dashboard: upload, select, and trim faster.</p>
+                <p className={isDarkMode ? "mt-2 text-sm text-gray-400" : "mt-2 text-sm text-slate-700"}>
+                  FastVid dashboard: upload, select, and trim faster.
+                </p>
               </div>
               <button
                 type="button"
@@ -368,41 +438,63 @@ export default function App() {
                     <div className="text-lg font-semibold">Uploaded Videos</div>
                     <div className="text-sm text-gray-500">Click a thumbnail to open the editor.</div>
                   </div>
-                  <span className="rounded-full bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-gray-300">{uploadedVideos.length}</span>
+                  <span className="rounded-full bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-gray-300">
+                    {uploadedVideos.length}
+                  </span>
                 </div>
+
                 <div className="space-y-3 max-h-[760px] overflow-y-auto pr-2">
-                  {uploadedVideos.length === 0 ? (
+                  {loadingVideos ? (
+                    <div className="rounded-3xl border border-dashed border-white/10 bg-[#111111] p-6 text-center text-sm text-gray-400">
+                      Loading uploaded videos...
+                    </div>
+                  ) : uploadedVideos.length === 0 ? (
                     <div className="rounded-3xl border border-dashed border-white/10 bg-[#111111] p-6 text-center text-sm text-gray-400">
                       No uploaded videos yet.
                     </div>
                   ) : (
                     uploadedVideos.map((item) => {
-                      const itemKey = item.id || item.playbackUrl || item.src || item.filename || "video";
+                      const normalizedItem = normalizeVideoItem(item);
+                      const itemKey =
+                        normalizedItem.id ||
+                        normalizedItem.playbackUrl ||
+                        normalizedItem.src ||
+                        normalizedItem.filename ||
+                        "video";
+
                       return (
                         <button
                           key={itemKey}
                           type="button"
-                          onClick={() => setVideo({
-                            ...item,
-                            src: item.playbackUrl || item.src,
-                            filename: item.filename || item.originalName || "Uploaded Video",
-                          })}
+                          onClick={() => {
+                            console.log("Selected video:", normalizedItem);
+                            setVideo(normalizedItem);
+                          }}
                           className="group flex w-full items-start gap-3 rounded-3xl border border-white/5 bg-white/5 p-3 text-left transition hover:border-orange-500 hover:bg-white/10"
                         >
                           <div className="h-20 w-28 overflow-hidden rounded-2xl bg-[#0f0f0f]">
                             <img
-                              src={item.thumbnailUrl || item.poster || item.playbackUrl || item.src}
-                              alt={item.filename || item.originalName || "Video thumbnail"}
+                              src={normalizedItem.thumbnailUrl || normalizedItem.src}
+                              alt={normalizedItem.filename || "Video thumbnail"}
                               className="h-full w-full object-cover"
                               loading="lazy"
                             />
                           </div>
+
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-semibold text-white">{item.filename || item.originalName || "Uploaded video"}</div>
+                            <div className="truncate text-sm font-semibold text-white">
+                              {normalizedItem.filename || normalizedItem.originalName || "Uploaded video"}
+                            </div>
                             <div className="mt-1 text-xs text-gray-400">
-                              {item.duration
-                                ? `${Math.floor(item.duration / 60)}:${String(Math.floor(item.duration % 60)).padStart(2, "0")}${item.originalFormat ? ` · ${item.originalFormat.toUpperCase()}` : ""}`
-                                : item.originalFormat || "Imported file"}
+                              {normalizedItem.duration
+                                ? `${Math.floor(normalizedItem.duration / 60)}:${String(
+                                    Math.floor(normalizedItem.duration % 60)
+                                  ).padStart(2, "0")}${
+                                    normalizedItem.originalFormat
+                                      ? ` · ${normalizedItem.originalFormat.toUpperCase()}`
+                                      : ""
+                                  }`
+                                : normalizedItem.originalFormat || "Imported file"}
                             </div>
                           </div>
                         </button>
@@ -417,6 +509,7 @@ export default function App() {
                   <div className="text-lg font-semibold">Upload or Load URL</div>
                   <div className="text-sm text-gray-500">Upload a local file or import a video link.</div>
                 </div>
+
                 <div className="space-y-5">
                   <div className="rounded-3xl bg-[#111111] p-5">
                     <div className="mb-3 text-sm text-gray-400">Paste video URL</div>
@@ -436,7 +529,9 @@ export default function App() {
                         {loading ? "Loading..." : "Load URL"}
                       </button>
                     </div>
-                    <p className="mt-3 text-xs text-gray-500">{status || "Imported video links are resolved and then made ready for trimming."}</p>
+                    <p className="mt-3 text-xs text-gray-500">
+                      {status || "Imported video links are resolved and then made ready for trimming."}
+                    </p>
                   </div>
 
                   <div className="rounded-3xl bg-[#111111] p-5">
@@ -492,7 +587,9 @@ export default function App() {
                     <span className="text-gray-400">Current status</span>
                     <span className="text-white">{loading ? "Busy" : "Ready"}</span>
                   </div>
-                  <div className="text-gray-400">Your uploaded videos will appear on the left. Click one to start editing.</div>
+                  <div className="text-gray-400">
+                    Your uploaded videos will appear on the left. Click one to start editing.
+                  </div>
                 </div>
               </section>
             </div>
@@ -504,7 +601,7 @@ export default function App() {
           onBack={() => setVideo(null)}
           token={token}
           uploadedVideos={uploadedVideos}
-          onSelectVideo={(nextVideo) => setVideo(nextVideo)}
+          onSelectVideo={(nextVideo) => setVideo(normalizeVideoItem(nextVideo))}
           isDarkMode={isDarkMode}
           onToggleDarkMode={toggleDarkMode}
         />

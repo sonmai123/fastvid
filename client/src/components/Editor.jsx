@@ -77,9 +77,11 @@ export default function Editor({ video, onBack, token, isDarkMode, onToggleDarkM
     setStart(0);
     setEnd(d);
   };
-  const handleVideoError = (e) => {
-    console.error("Video load error:", e.target?.error);
-  };
+const handleVideoError = (e) => {
+  const err = e.target?.error;
+  console.error("Video load error:", err);
+  console.log("Current video src:", e.target?.currentSrc);
+};
 
   const handleTimeUpdate = () => {
     const v = videoRef.current;
@@ -516,7 +518,7 @@ export default function Editor({ video, onBack, token, isDarkMode, onToggleDarkM
                     onClick={togglePlayPause}
                     style={filterStyle}
                     className="h-full w-full cursor-pointer object-contain"
-                    crossOrigin="anonymous"
+              
                   />
 
                   <button

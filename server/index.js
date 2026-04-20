@@ -33,9 +33,24 @@ const prisma = new PrismaClient({ log: ["error", "warn"] });
 const app = express();
 
 function getBaseUrl(req) {
-  const forwardedProto = String(req.headers["x-forwarded-proto"] || req.headers["x-forwarded-protocol"] || req.protocol || "https").split(",")[0].trim();
-  const protocol = forwardedProto === "http" ? "https" : forwardedProto;
-  return `${protocol}://${req.get("host")}`;
+  const host = req.get("host");
+
+  if (host && host.includes("localhost")) {
+    return `http://${host}`;
+  }
+
+  const forwardedProto = String(
+    req.headers["x-forwarded-proto"] ||
+    req.headers["x-forwarded-protocol"] ||
+    req.protocol ||
+    "https"
+  )
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+
+  const protocol = forwardedProto === "https" ? "https" : "http";
+  return `${protocol}://${host}`;
 }
 
 if (!fs.existsSync(TMP_DIR)) {
@@ -937,6 +952,16 @@ app.post('/api/convert-video', requireAuth, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`FastVid API running at http://0.0.0.0:${PORT}`);
+
+  // Test MongoDB connection
+  try {
+    await prisma.$connect();
+    console.log("✅ MongoDB connected successfully");
+  } catch (error) {
+    console.error("❌ MongoDB connection failed:", error.message);
+    console.error("Please check your DATABASE_URL or MONGO_* environment variables");
+    process.exit(1);
+  }
 });
