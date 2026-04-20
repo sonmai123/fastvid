@@ -58,15 +58,26 @@ if (!fs.existsSync(TMP_DIR)) {
 }
 
 const corsOptions = {
-  origin: true,
+  origin: (origin, callback) => callback(null, true),
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Range"],
   exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Type"],
   optionsSuccessStatus: 204,
+  preflightContinue: false,
+  credentials: true,
 };
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, Range");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 app.use(express.json());
 app.use("/media", express.static(TMP_DIR));
 
@@ -953,16 +964,29 @@ app.post('/api/convert-video', requireAuth, async (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', async () => {
-  console.log(`FastVid API running at http://0.0.0.0:${PORT}`);
-
-  // Test MongoDB connection
+async function startServer() {
   try {
+    console.log(`Starting FastVid API on port ${PORT}...`);
     await prisma.$connect();
     console.log("✅ MongoDB connected successfully");
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`FastVid API running at http://0.0.0.0:${PORT}`);
+    });
   } catch (error) {
-    console.error("❌ MongoDB connection failed:", error.message);
+    console.error("❌ FastVid startup failed:", error);
     console.error("Please check your DATABASE_URL or MONGO_* environment variables");
     process.exit(1);
   }
+}
+
+process.on("uncaughtException", (error) => {
+  console.error("UNCAUGHT EXCEPTION:", error);
+  process.exit(1);
 });
+
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION:", reason);
+});
+
+startServer();
